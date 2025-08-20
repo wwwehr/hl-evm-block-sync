@@ -6,51 +6,53 @@ BUCKET="hl-testnet-evm-blocks"
 REGION="ap-northeast-1"
 DEST="${HOME}/evm-blocks-testnet"
 WORKERS=512
-S3SYNC="${HOME}/.local/bin/s3sync"   # preferred path
-VERSION="v1.36.0"
+S3SYNC="${HOME}/.local/bin/s3sync"   # install & run from here
 # ----------------
 
-now() { date +"%F %T"; }
-log() { printf '[%s] %s\n' "$(now)" "$*"; }
-die() { log "ERROR: $*"; exit 1; }
+now(){ date +"%F %T"; }
+log(){ printf '[%s] %s\n' "$(now)" "$*"; }
+die(){ log "ERROR: $*"; exit 1; }
 trap 'log "Signal received, exiting."; exit 2' INT TERM
 
-install_s3sync() {
-  log "Installing s3sync $VERSION into ~/.local/bin..."
-  BASE_URL="https://github.com/nidor1998/s3sync/releases/download/$VERSION"
-  OS="$(uname | tr '[:upper:]' '[:lower:]')"
-  ARCH="$(uname -m)"
+need(){ command -v "$1" >/dev/null 2>&1 || die "missing dependency: $1"; }
 
-  case "$ARCH" in
-    x86_64) ARCH="amd64" ;;
-    aarch64|arm64) ARCH="arm64" ;;
-    *) die "Unsupported architecture: $ARCH" ;;
-  esac
-
-  FILENAME="s3sync-${OS}-${ARCH}.tar.gz"
-  URL="$BASE_URL/$FILENAME"
-
-  mkdir -p ~/.local/bin
-
-  curl -L --fail -o "$FILENAME" "$URL"
-  tar -xzf "$FILENAME"
-
-  chmod +x s3sync
-  mv s3sync "$S3SYNC"
-  rm "$FILENAME"
-
-  log "Installed s3sync $VERSION successfully at $S3SYNC"
+get_latest_version() {
+  # follows redirect to .../releases/tag/vX.Y.Z ; extract the tag
+  curl -fsSL -o /dev/null -w '%{url_effective}' \
+    https://github.com/nidor1998/s3sync/releases/latest \
+  | sed -n 's#.*/tag/\(v[0-9][^/]*\).*#\1#p'
 }
 
-# --- check deps ---
-command -v aws >/dev/null 2>&1 || die "aws CLI not found"
-if [[ ! -x "$S3SYNC" ]]; then
-  if command -v s3sync >/dev/null 2>&1; then
-    S3SYNC="$(command -v s3sync)"
-  else
-    install_s3sync
-  fi
-fi
+install_s3sync_latest() {
+  need curl
+  local version os arch fname url tmpdir tmpbin
+  version="$(get_latest_version)"; [[ -n "$version" ]] || die "could not resolve latest version"
+  os="$(uname | tr '[:upper:]' '[:lower:]')"
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64) arch="amd64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) die "unsupported arch: $arch" ;;
+  esac
+  fname="s3sync-${os}-${arch}.tar.gz"
+  url="https://github.com/nidor1998/s3sync/releases/download/${version}/${fname}"
+
+  log "Installing s3sync ${version} -> ${S3SYNC}"
+  mkdir -p "${HOME}/.local/bin"
+  tmpdir="$(mktemp -d)"; trap 'rm -rf "$tmpdir"' EXIT
+  curl -fL --retry 5 --retry-delay 1 -o "${tmpdir}/${fname}" "$url"
+  tar -xzf "${tmpdir}/${fname}" -C "${tmpdir}"
+  tmpbin="${tmpdir}/s3sync"
+  [[ -x "$tmpbin" ]] || die "extracted s3sync not executable"
+  chmod +x "$tmpbin"
+  mv -f "$tmpbin" "$S3SYNC"
+  log "s3sync installed at ${S3SYNC}"
+}
+
+# --- deps & install/update ---
+need aws
+install_s3sync_latest   # <-- always refresh to latest
+[[ ":$PATH:" == *":$HOME/.local/bin:"* ]] || export PATH="$HOME/.local/bin:$PATH"
 
 mkdir -p "$DEST"
 
@@ -87,4 +89,3 @@ done
 total_end=$(date +%s)
 total_mins=$(( (total_end - total_start + 59) / 60 ))
 printf '[%s] ALL DONE in %d minutes.\n' "$(now)" "$total_mins"
-
