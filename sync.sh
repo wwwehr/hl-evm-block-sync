@@ -102,7 +102,11 @@ mapfile -t PREFIXES < <(
 
 # mark initial status
 declare -A RESULTS
-skipping=1
+if [[ ! -n "$START_AT" ]]; then
+  skipping=0     
+else                                  
+  skipping=1                                                                
+fi 
 for p in "${PREFIXES[@]}"; do
   if [[ -n "$START_AT" && "$p" == "$START_AT" ]]; then
     skipping=0
