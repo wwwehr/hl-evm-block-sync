@@ -23,6 +23,11 @@ chmod +x s3sync-runner.sh
 ./s3sync-runner.sh
 ```
 
+> Skipping to relevant block section
+```bash
+./s3sync-runner.sh --start-at 30000000
+```
+
 The script will:
 * Install or update s3sync into ~/.local/bin
 * Discover top-level prefixes in your S3 bucket
