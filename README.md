@@ -18,7 +18,7 @@ This script automates syncing **massive S3 object stores** in a **safe, resumabl
 Instead of cloning a full repo, you can just download the runner script directly:
 
 ```bash
-curl -L -o s3sync-runner.sh https://raw.githubusercontent.com/your-org/hyperliquid-dex-s3sync-runner/main/s3sync-runner.sh
+curl -L -o s3sync-runner.sh https://raw.githubusercontent.com/wwwehr/hyperliquid-dex-s3sync-runner/main/s3sync-runner.sh
 chmod +x s3sync-runner.sh
 ./s3sync-runner.sh
 ```
